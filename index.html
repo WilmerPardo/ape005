@@ -2,11 +2,108 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Simulación de Peticiones HTTP</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Visualización de APIs</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <h1>Prueba de Peticiones HTTP</h1>
-  <button id="btnGet">Realizar GET</button>
-  <div id="resultado"></div>
+
+  <h1>Consumo de API</h1>
+  
+  <button id="btnGetRick" class="btn-rick">GET Rick (Tarjeta Visual)</button>
+  <button id="btnPostPlace" class="btn-post">POST JSONPlaceholder (JSON)</button>
+  <button id="btnPostError" class="btn-error">POST Rick (Forzar Error)</button>
+  
+  <h3>Resultado:</h3>
+  <div id="resultado">Esperando petición...</div>
+
+  <script>
+    const resultadoDiv = document.getElementById('resultado');
+
+    // 1. GET Rick & Morty
+    document.getElementById('btnGetRick').addEventListener('click', () => {
+      const randomId = Math.floor(Math.random() * 826) + 1;
+      ejecutarPeticion(`https://rickandmortyapi.com/api/character/${randomId}`, { method: 'GET' });
+    });
+
+    // 2. POST JSONPlaceholder
+    document.getElementById('btnPostPlace').addEventListener('click', () => {
+      ejecutarPeticion('https://jsonplaceholder.typicode.com/posts', {
+        method: 'POST',
+        body: JSON.stringify({ title: 'Prueba', body: 'Datos', userId: 1 }),
+        headers: { 'Content-type': 'application/json; charset=UTF-8' },
+      });
+    });
+
+    // 3. Error Forzado
+    document.getElementById('btnPostError').addEventListener('click', () => {
+      ejecutarPeticion('https://rickandmortyapi.com/api/character', { method: 'POST' });
+    });
+
+    // --- Lógica Principal ---
+    function ejecutarPeticion(url, opciones) {
+      const startTime = performance.now();
+      resultadoDiv.innerHTML = "⏳ <em>Cargando datos...</em>";
+
+      fetch(url, opciones)
+        .then(response => {
+          // Llamamos a nuestra función de logs
+          imprimirLogs(url, opciones.method, startTime, response.status);
+
+          if (!response.ok) {
+            throw new Error(`Error HTTP: ${response.status} ${response.statusText}`);
+          }
+          return response.json();
+        })
+        .then(data => {
+          // Renderizado visual
+          if (url.includes('rickandmortyapi') && data.image) {
+            mostrarTarjeta(data);
+          } else {
+            mostrarJSON(data);
+          }
+        })
+        .catch(error => {
+          // Si el error NO tiene status, es un fallo de red
+          if (!error.message.includes("HTTP")) {
+             imprimirLogs(url, opciones.method, startTime, "Fallo de Red/CORS");
+          }
+
+          console.error("Error capturado:", error);
+          resultadoDiv.innerHTML = `<p style="color: red; font-weight: bold;">❌ ${error.message}</p>
+                                    <p><small>Revisa la consola para ver detalles del bloqueo.</small></p>`;
+        });
+    }
+
+    // --- FUNCIÓN EXCLUSIVA PARA IMPRIMIR LOGS ---
+    function imprimirLogs(url, metodo, startTime, estado) {
+        const duration = (performance.now() - startTime).toFixed(2);
+        
+        console.group(`Detalles de la Petición (${metodo})`);
+        console.log(`URL solicitada: ${url}`);
+        console.log(`Método usado: ${metodo}`);
+        console.log(`Tiempo de respuesta: ${duration} ms`);
+        console.log(`Código de estado: ${estado}`);
+        console.groupEnd();
+    }
+
+    function mostrarTarjeta(personaje) {
+        const colorEstado = personaje.status === 'Alive' ? 'alive' : 'dead';
+        resultadoDiv.innerHTML = `
+            <div class="card">
+                <img src="${personaje.image}" alt="${personaje.name}">
+                <div class="card-info">
+                    <h2>${personaje.name}</h2>
+                    <p><span class="status-icon ${colorEstado}"></span> ${personaje.status} - ${personaje.species}</p>
+                    <p><strong>Origen:</strong> ${personaje.origin.name}</p>
+                    <p><small>ID: ${personaje.id}</small></p>
+                </div>
+            </div>`;
+    }
+
+    function mostrarJSON(data) {
+        resultadoDiv.innerHTML = `<div class="json-view">${JSON.stringify(data, null, 2)}</div>`;
+    }
+  </script>
 </body>
 </html>
